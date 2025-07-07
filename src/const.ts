@@ -1,0 +1,1 @@
+export const VECTOR_STORE_TABLE_NAME = 'issue_router_pg_embedding';

@@ -1,0 +1,40 @@
+{
+  "name": "issue-router",
+  "version": "1.0.0",
+  "description": "Issue router based on LLM",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "fetch-issues": "tsx scripts/fetch-issues.ts",
+    "index-issues": "tsx scripts/index-issues.ts",
+    "segregate-issues": "tsx scripts/segregate-issues.ts",
+	"db:start": "docker-compose up -d",
+	"db:stop": "docker-compose down"
+  },
+  "dependencies": {
+    "@langchain/community": "^0.3.47",
+    "@langchain/core": "^0.3.61",
+    "@langchain/openai": "^0.5.15",
+    "@langchain/textsplitters": "^0.1.0",
+    "langchain": "^0.3.29",
+    "langfuse": "^3.37.5",
+    "langfuse-vercel": "^3.37.4",
+    "zod": "^3.25.67",
+    "@vercel/otel": "^1.13.0",
+    "hono": "^4.7.4",
+    "@hono/node-server": "^1.13.8",
+    "dotenv": "^16.0.0",
+    "pg": "^8.11.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3",
+    "tsx": "^4.7.0",
+    "@types/node": "^20.0.0",
+    "@types/pg": "^8.10.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
