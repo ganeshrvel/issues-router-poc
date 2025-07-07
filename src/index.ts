@@ -2,6 +2,7 @@ import 'dotenv/config';
 import { SimpleLabelPrediction } from './agents/simple-label-prediction.js';
 import * as fs from 'fs';
 import * as path from 'path';
+import { stringify } from 'csv-stringify/sync';
 // import { Hono } from 'hono';
 // import { serve } from '@hono/node-server';
 // import * as console from "node:console";
@@ -83,25 +84,25 @@ interface ExperimentResult {
 async function runExperiment() {
   const predictor = new SimpleLabelPrediction();
   const devsetDir = path.join(process.cwd(), 'devset');
-  
+
   // Read all JSON files from devset directory
   const files = fs.readdirSync(devsetDir).filter(file => file.endsWith('.json'));
   const devDataset: IssueTriageRow[] = [];
-  
+
   for (const file of files) {
     const filePath = path.join(devsetDir, file);
     const content = fs.readFileSync(filePath, 'utf-8');
     const issue = JSON.parse(content);
     devDataset.push(issue);
   }
-  
+
   console.log(`Running experiment on ${devDataset.length} issues from devset`);
-  
+
   const experimentResults: ExperimentResult[] = [];
-  
+
   for (const [i, row] of devDataset.entries()) {
     const predictedLabels = await predictor.predictLabels(row.issue_title, row.issue_description);
-    
+
     experimentResults.push({
       issue_num: row.issue_num,
       issue_title: row.issue_title,
@@ -109,36 +110,67 @@ async function runExperiment() {
       ground_truth_labels: row.ground_truth_labels,
       predicted_labels: predictedLabels
     });
-    
+
     console.log(`Processed ${i + 1}/${devDataset.length}`);
   }
-  
+
   // Save experiment results
   const resultsDir = path.join(process.cwd(), 'results');
   if (!fs.existsSync(resultsDir)) {
     fs.mkdirSync(resultsDir);
   }
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-  
+
   // Save as JSON
   const jsonFilename = `experiment_results_${timestamp}.json`;
   fs.writeFileSync(path.join(resultsDir, jsonFilename), JSON.stringify(experimentResults, null, 2));
-  
-  // Save as CSV
+
+  // Clean text helper function - removes line breaks for CSV compatibility
+  const cleanText = (text: string) => {
+    return text
+      .replace(/\\r\\n/g, ' ')  // Replace escaped Windows line endings with spaces
+      .replace(/\\r/g, ' ')     // Replace escaped Mac line endings with spaces
+      .replace(/\\n/g, ' ')     // Replace escaped Unix line endings with spaces
+      .replace(/\r\n/g, ' ')    // Replace actual Windows line endings with spaces
+      .replace(/\r/g, ' ')      // Replace actual Mac line endings with spaces
+      .replace(/\n/g, ' ')      // Replace actual Unix line endings with spaces
+      .replace(/\\"/g, '"')     // Replace escaped quotes with regular quotes
+      .replace(/\\'/g, "'")     // Replace escaped single quotes with regular single quotes
+      .replace(/\\ \\/g, ' ')   // Replace literal '\ \' sequences with single space
+      .replace(/\\\\/g, ' ')    // Replace double backslashes with space
+      .replace(/\s+/g, ' ')     // Normalize multiple spaces
+      .trim();
+  };
+
+  // Save as CSV using proper CSV library
   const csvFilename = `experiment_results_${timestamp}.csv`;
-  const csvHeader = 'issue_num,issue_title,issue_description,ground_truth_labels,predicted_labels\n';
-  const csvContent = experimentResults.map(result => {
-    const escapeCsv = (str: string) => `"${str.replace(/"/g, '""')}"`;
-    return [
-      result.issue_num,
-      escapeCsv(result.issue_title),
-      escapeCsv(result.issue_description),
-      escapeCsv(result.ground_truth_labels.join(';')),
-      escapeCsv(result.predicted_labels.join(';'))
-    ].join(',');
-  }).join('\n');
-  fs.writeFileSync(path.join(resultsDir, csvFilename), csvHeader + csvContent);
-  
+  const csvData = experimentResults.map(result => ({
+    issue_num: result.issue_num,
+    issue_title: cleanText(result.issue_title),
+    issue_description: cleanText(result.issue_description),
+    ground_truth_labels: result.ground_truth_labels.join(';'),
+    predicted_labels: result.predicted_labels.join(';')
+  }));
+
+  const csvContent = stringify(csvData, {
+    header: true,
+    columns: {
+      issue_num: 'issue_num',
+      issue_title: 'issue_title',
+      issue_description: 'issue_description',
+      ground_truth_labels: 'ground_truth_labels',
+      predicted_labels: 'predicted_labels'
+    },
+    quoted: true,
+    quoted_empty: true,
+    quoted_string: true,
+    escape: '"',
+    delimiter: ',',
+    record_delimiter: '\n'
+  });
+
+  fs.writeFileSync(path.join(resultsDir, csvFilename), csvContent);
+
   // study experiment results
   let count = 0;
   for (const result of experimentResults) {
@@ -146,9 +178,10 @@ async function runExperiment() {
       count += 1;
     }
   }
-  
+
   console.log(`Mismatches: ${count}/${experimentResults.length}`);
 }
 
-// testSimpleLabelPrediction().catch(console.error);
+
+// // testSimpleLabelPrediction().catch(console.error);
 runExperiment().catch(console.error);

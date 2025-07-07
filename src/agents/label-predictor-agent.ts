@@ -34,7 +34,7 @@ export class LabelPredictorAgent {
     const predictionPrompt = PromptTemplate.fromTemplate(`
 You are a GitHub issue classifier. You will be given a new issue and a list of similar issues with their ground truth labels.
 
-Your task is to find the most similar issue based on title and description match, and return the exact ground truth labels from that issue.
+Your task is to analyze the new issue and predict appropriate labels based on patterns from similar issues.
 
 SIMILAR ISSUES WITH GROUND TRUTH LABELS:
 {similar_issues_with_labels}
@@ -43,11 +43,30 @@ NEW ISSUE TO CLASSIFY:
 Title: {title}
 Description: {description}
 
-INSTRUCTIONS:
-1. Compare the new issue's title and description with each similar issue
-2. Find the issue that has the most similar title and description content
-3. Return the exact ground truth labels from that most similar issue
-4. Do NOT create new labels - only return the existing ground truth labels from the matched issue
+LABEL ASSIGNMENT GUIDELINES:
+1. **Prioritize single labels** - Most issues (83%) need only one primary label
+2. **Use multiple labels only when necessary** - Only when the issue clearly spans multiple categories
+
+LABELING PATTERNS:
+- **bug**: Clear technical issues, errors, broken functionality
+- **question**: Help-seeking, "how to" inquiries, configuration questions
+- **improvement**: Making existing features better, performance fixes
+- **enhancement**: New features, integrations, major additions
+- **documentation**: Documentation gaps, unclear instructions
+
+MULTIPLE LABEL SCENARIOS:
+- **bug + question**: Bug reports where user also asks for help/clarification
+- **improvement + question**: Improvement requests seeking guidance
+- **bug + improvement**: Bug reports that also suggest fixes
+- **enhancement + question**: Feature requests seeking input
+- **documentation + question**: Documentation issues seeking clarification
+
+DECISION PROCESS:
+1. Find the most similar issue(s) based on title and description content
+2. Determine if this is a clear single-category issue or a complex multi-category issue
+3. For complex issues, check if they match known multiple label patterns
+4. Return the exact ground truth labels from the most similar issue(s)
+5. Do NOT create new labels - only return existing ground truth labels
 
 Return a JSON object with this exact structure:
 {{
